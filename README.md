@@ -69,3 +69,13 @@ python validate_submission.py output/submission.csv --expected-rows 50
 ```bash
 streamlit run demo/app.py
 ```
+## Dataset Setup
+
+The large dataset file `data/candidates.jsonl` (464MB) is NOT included
+in this repository due to GitHub file size limits.
+
+To run the project:
+1. Download `candidates.jsonl` from the hackathon portal
+2. Place it in the `data/` folder
+3. Run the pipeline:
+   python rank.py --candidates data/candidates.jsonl --jd data/job_description.txt
