@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intelligent Candidate Discovery — Architecture Diagram</title>
+<style>
+  :root {
+    --bg:    #0b1120;
+    --panel: #111827;
+    --line:  #1e3a5c;
+    --white: #f0f6ff;
+    --dim:   #64748b;
+    --sky:   #38bdf8;
+    --teal:  #2dd4bf;
+    --blue:  #3b82f6;
+    --amber: #f59e0b;
+    --coral: #fb923c;
+    --mint:  #6ee7b7;
+    --gold:  #fbbf24;
+    --sans:  'Segoe UI', -apple-system, sans-serif;
+    --mono:  'Consolas', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--sans);
+    padding: 40px 24px 60px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 48px; }
+  .badge {
+    display: inline-block;
+    background: rgba(59,130,246,0.2);
+    color: var(--sky);
+    border: 1px solid rgba(59,130,246,0.4);
+    border-radius: 20px;
+    padding: 4px 16px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .header h1 { font-size: clamp(26px,4vw,40px); font-weight: 700; margin-bottom: 8px; }
+  .header p  { color: var(--dim); font-size: 15px; }
+
+  /* Pipeline */
+  .pipeline { display: flex; flex-direction: column; gap: 0; }
+
+  .layer {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 0;
+    position: relative;
+  }
+
+  /* Left rail */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-right: 20px;
+  }
+  .layer-badge {
+    width: 160px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #0b1120;
+    flex-shrink: 0;
+  }
+  .connector {
+    width: 2px;
+    flex: 1;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .layer:last-child .connector { display: none; }
+  .arrow {
+    font-size: 18px;
+    color: var(--dim);
+    margin: 2px 0;
+  }
+
+  /* Content */
+  .content { padding: 0 0 32px 0; }
+  .cards { display: grid; gap: 10px; }
+  .cards.cols-2 { grid-template-columns: 1fr 1fr; }
+  .cards.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cards.cols-1 { grid-template-columns: 1fr; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+  }
+  .card.new { border-style: dashed; }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .card-desc { font-size: 11.5px; color: var(--dim); line-height: 1.55; }
+  .new-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: rgba(52,211,153,0.15);
+    color: var(--mint);
+    border: 1px solid rgba(52,211,153,0.35);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .weight-bar {
+    margin-top: 8px;
+    height: 4px;
+    border-radius: 2px;
+    background: #1e2d40;
+    overflow: hidden;
+  }
+  .weight-fill { height: 100%; }
+
+  /* Score formula box */
+  .formula-box {
+    background: #0a1628;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--mint);
+    margin-top: 10px;
+    line-height: 1.7;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    justify-content: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--dim);
+  }
+  .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .team-footer {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--dim);
+    font-family: var(--mono);
+  }
+
+  @media (max-width: 680px) {
+    .layer { grid-template-columns: 120px 1fr; }
+    .cards.cols-2, .cards.cols-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="header">
+    <div class="badge">Track 01 — Data &amp; AI Challenge · Redrob Hackathon 2025</div>
+    <h1>Intelligent Candidate Discovery</h1>
+    <p>Complete System Architecture — CodeCrafter · Team Leader: Varsha Katiyar</p>
+  </header>
+
+  <div class="pipeline">
+
+    <!-- LAYER 0 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--sky)">00 · Data Input</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-2">
+          <div class="card">
+            <div class="card-title" style="color:var(--sky)">candidates.jsonl</div>
+            <div class="card-desc">Full candidate pool — profiles, skills, career history, education, certifications, redrob_signals (23 fields)</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--sky)">job_description.txt</div>
+            <div class="card-desc">Raw JD text — extracted from provided job_description.docx</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 1 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--teal)">01 · Understanding</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-3">
+          <div class="card">
+            <div class="card-title" style="color:var(--teal)">JD Parser</div>
+            <div class="card-desc">Extracts: required skills, nice-to-have, seniority level, experience range, work mode, domain intent</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--teal)">Profile Normalizer</div>
+            <div class="card-desc">Skill taxonomy normalization (JS→JavaScript), deduplication, candidate text blob construction</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:var(--teal)">Skill Weighting <span class="new-badge">new</span></div>
+            <div class="card-desc">Proficiency × endorsements × duration × assessment score → weighted skill vector per candidate</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 2 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--blue)">02 · Embedding</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-3">
+          <div class="card">
+            <div class="card-title" style="color:var(--blue)">TF-IDF Vectorizer</div>
+            <div class="card-desc">50k features, bigrams (1,2), sublinear TF. Converts candidate text blobs to sparse term matrix</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--blue)">TruncatedSVD (LSA)</div>
+            <div class="card-desc">Reduces to 256-dim dense vectors. Captures latent semantic topics — "neural nets" ≈ "ML Engineer"</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:var(--blue)">Embedding Cache <span class="new-badge">new</span></div>
+            <div class="card-desc">Fitted model + vectors saved to disk. Subsequent runs skip re-embedding entirely — instant reload</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 3 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--amber)">03 · Retrieval</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-3">
+          <div class="card">
+            <div class="card-title" style="color:var(--amber)">LSA Cosine Search</div>
+            <div class="card-desc">Dot product on L2-normalized vectors = cosine similarity. Top-1000 candidates retrieved by semantic match</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--amber)">BM25 Keyword Search</div>
+            <div class="card-desc">BM25Okapi over tokenized profiles. Catches exact skill terms semantic may miss (e.g. "FAISS", "NDCG")</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:var(--amber)">RRF Fusion <span class="new-badge">new</span></div>
+            <div class="card-desc">score = 0.6/(60+sem_rank) + 0.4/(60+bm25_rank). Combines both signals without hyperparameter tuning</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 4 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--coral)">04 · Scoring</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-3">
+          <div class="card">
+            <div class="card-title" style="color:var(--coral)">Semantic Score</div>
+            <div class="card-desc">Cosine similarity → 0–100. Meaning-level match between JD and candidate</div>
+            <div class="weight-bar"><div class="weight-fill" style="width:40%;background:var(--coral)"></div></div>
+            <div class="card-desc" style="margin-top:4px;font-size:10px">Default weight: 40%</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--coral)">Profile Score</div>
+            <div class="card-desc">Skills (50%) + Experience (25%) + Education (15%) + Title (10%) + Nice-to-have bonus (up to +15)</div>
+            <div class="weight-bar"><div class="weight-fill" style="width:35%;background:var(--coral)"></div></div>
+            <div class="card-desc" style="margin-top:4px;font-size:10px">Default weight: 35%</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--coral)">Behavioral Score</div>
+            <div class="card-desc">All 23 Redrob signals: Recency (30%) + Engagement (25%) + Reliability (25%) + Intent (20%)</div>
+            <div class="weight-bar"><div class="weight-fill" style="width:25%;background:var(--coral)"></div></div>
+            <div class="card-desc" style="margin-top:4px;font-size:10px">Default weight: 25%</div>
+          </div>
+        </div>
+
+        <div class="cards cols-2" style="margin-top:10px">
+          <div class="card new">
+            <div class="card-title" style="color:var(--coral)">Dynamic Weight Tuning <span class="new-badge">new</span></div>
+            <div class="card-desc">Senior roles → profile weight ↑. Fresher roles → behavioral weight ↑. 6 seniority levels configured</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:var(--coral)">Cold-Start Multiplier <span class="new-badge">new</span></div>
+            <div class="card-desc">Sparse behavioral profiles get 0.80–0.90× multiplier instead of score=0. Fair treatment, not exclusion</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          Final Score = (w_sem × Semantic + w_prof × Profile + w_beh × Behavioral) / 100<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× Cold-Start Multiplier (0.80 – 1.00)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ clipped to [0.0, 1.0], rounded to 4 decimal places
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 5 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:#a78bfa)">05 · Ranking</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-3">
+          <div class="card">
+            <div class="card-title" style="color:#a78bfa">Ranking Engine</div>
+            <div class="card-desc">Sort by (-score, candidate_id). Pad to exactly 100. Enforce monotonically non-increasing scores</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:#a78bfa">Explainability <span class="new-badge">new</span></div>
+            <div class="card-desc">"Senior ML Eng 6.0 yrs; 3 skills matched; resp 0.85; active 2d ago; github 72; open to work"</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:#a78bfa">Bias Audit <span class="new-badge">new</span></div>
+            <div class="card-desc">Score distribution by experience bucket (0-2, 2-5, 5-9, 9+ yrs) and by country. Saved to JSON</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 6 -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--mint);color:#0b1120">06 · Output</div>
+        <div class="connector"></div>
+        <div class="arrow">↓</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-3">
+          <div class="card">
+            <div class="card-title" style="color:var(--mint)">submission.csv</div>
+            <div class="card-desc">Exactly 100 rows. Columns: candidate_id, rank (1–100), score (0.0–1.0), reasoning</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--mint)">submission_detailed.json</div>
+            <div class="card-desc">100 rows with sub-scores: semantic, profile, behavioral. For analysis and debugging</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color:var(--mint)">bias_audit.json</div>
+            <div class="card-desc">Fairness report: count, avg, min, max score per experience bucket and country</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 7 BONUS -->
+    <div class="layer">
+      <div class="rail">
+        <div class="layer-badge" style="background:var(--gold);color:#0b1120">07 · Demo</div>
+      </div>
+      <div class="content">
+        <div class="cards cols-2">
+          <div class="card new">
+            <div class="card-title" style="color:var(--gold)">Streamlit Live Demo <span class="new-badge">bonus</span></div>
+            <div class="card-desc">streamlit run demo/app.py — paste any JD, see live ranked candidates instantly. Download CSV from UI</div>
+          </div>
+          <div class="card new">
+            <div class="card-title" style="color:var(--gold)">Speed Benchmark <span class="new-badge">bonus</span></div>
+            <div class="card-desc">Displays "N candidates ranked in X.XX seconds" — quantified performance shown to judges in real time</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end pipeline -->
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><span class="leg-dot" style="background:var(--sky)"></span>Data Input</div>
+    <div class="legend-item"><span class="leg-dot" style="background:var(--teal)"></span>Understanding / NLP</div>
+    <div class="legend-item"><span class="leg-dot" style="background:var(--blue)"></span>Embedding / Semantic</div>
+    <div class="legend-item"><span class="leg-dot" style="background:var(--amber)"></span>Hybrid Retrieval</div>
+    <div class="legend-item"><span class="leg-dot" style="background:var(--coral)"></span>Multi-Signal Scoring</div>
+    <div class="legend-item"><span class="leg-dot" style="background:#a78bfa"></span>Ranking / Trust</div>
+    <div class="legend-item"><span class="leg-dot" style="background:var(--mint)"></span>Output</div>
+    <div class="legend-item"><span class="leg-dot" style="background:var(--gold)"></span>Demo (Bonus)</div>
+    <div class="legend-item">
+      <span class="leg-dot" style="border:1px dashed var(--mint);background:transparent"></span>
+      New / Differentiator Feature
+    </div>
+  </div>
+
+  <div class="team-footer">
+    CodeCrafter &nbsp;·&nbsp; Team Leader: Varsha Katiyar &nbsp;·&nbsp; Redrob Hackathon 2025
+  </div>
+
+</div>
+</body>
+</html>

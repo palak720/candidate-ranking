@@ -1,0 +1,337 @@
+# 🏗️ Architecture Details
+## Intelligent Candidate Discovery System
+### CodeCrafter — Redrob Hackathon 2025
+
+---
+
+## System Overview
+
+The system is a 7-layer AI pipeline that processes job descriptions and candidate profiles to produce a ranked shortlist. Every layer is modular, testable, and runs fully offline on CPU.
+
+---
+
+## Layer 0 — Data Ingestion
+
+### Inputs
+| File | Format | Size |
+|------|--------|------|
+| `candidates.jsonl` | JSON Lines | ~464MB (full) |
+| `sample_candidates.json` | JSON Array | ~294KB (sample) |
+| `job_description.txt` | Plain text | ~10KB |
+
+### Candidate Profile Structure
+```json
+{
+  "candidate_id": "CAND_0000031",
+  "profile": {
+    "headline": "Senior ML Engineer",
+    "summary": "...",
+    "current_title": "ML Engineer",
+    "current_company": "...",
+    "years_of_experience": 6.0,
+    "location": "Bengaluru",
+    "country": "India"
+  },
+  "career_history": [...],
+  "education": [...],
+  "skills": [...],
+  "certifications": [...],
+  "redrob_signals": { ...23 signals... }
+}
+```
+
+### Module: `src/preprocessing.py`
+- `load_candidates_jsonl()` — streams large JSONL files line by line (memory efficient)
+- `load_candidates_json()` — loads JSON array for sample data
+- `build_candidate_text()` — flattens all profile fields into a single text blob for embedding
+- `build_skills_set()` — returns `{skill_name: weighted_score}` dict per candidate
+- `normalize_skill_name()` — maps aliases: `"JS"→"JavaScript"`, `"TF"→"TensorFlow"`, etc.
+
+---
+
+## Layer 1 — JD Understanding
+
+### Module: `src/jd_parser.py`
+
+**Input:** Raw JD text string  
+**Output:** Structured dictionary
+
+```python
+{
+  "all_skills":       ["python", "faiss", "embeddings", "ndcg", ...],
+  "required_skills":  ["python", "faiss", "embeddings", "ranking"],
+  "nice_to_have":     ["spark", "kafka", "mlops"],
+  "experience":       {"min": 5, "max": 9},
+  "seniority":        "founding",
+  "work_mode":        "hybrid",
+  "locations":        ["Pune", "Noida"],
+  "raw_text":         "..."
+}
+```
+
+### How It Works
+- **Skill extraction** — matches against 40+ AI/ML skill taxonomy using regex word boundaries
+- **Experience parsing** — regex patterns: `"5-9 years"`, `"5+ years"`, `"minimum 5 years"`
+- **Seniority detection** — keyword scoring: `founding(9) > staff(8) > lead(7) > senior(6) > mid(5)`
+- **Work mode** — detects: `remote`, `hybrid`, `onsite`, `flexible`
+- **Required vs Nice-to-have** — splits by section headers: `"must have"`, `"nice to have"`, `"bonus"`
+
+---
+
+## Layer 2 — Embedding Layer
+
+### Module: `src/embeddings.py`
+
+**Technology:** scikit-learn `TfidfVectorizer` + `TruncatedSVD` (Latent Semantic Analysis)
+
+### Why TF-IDF + LSA?
+- **Fully offline** — no model downloads, no internet, no API
+- **CPU-only** — works within competition constraints
+- **Semantic** — LSA captures latent topic structure (not just term frequency)
+- **Fast** — fit once, cached to disk, reused across runs
+
+### Configuration
+```python
+TfidfVectorizer(
+    ngram_range=(1, 2),     # unigrams + bigrams
+    max_features=50000,     # 50k features
+    sublinear_tf=True,      # log-scale TF
+    strip_accents="unicode",
+    min_df=1,
+)
+TruncatedSVD(n_components=256, random_state=42)
+```
+
+### Candidate Text Blob (What Gets Embedded)
+Each candidate's text blob includes:
+```
+headline | summary | current title at company | industry |
+experience years | career history (all roles + descriptions) |
+education (degree + field + institution + tier) |
+skills (name + proficiency) | certifications |
+skill assessment scores
+```
+
+### Caching
+- First run: fits model + saves to `output/tfidf_index.pkl`
+- Subsequent runs: loads from cache — skips re-embedding entirely
+- Cache invalidated if candidate IDs change
+
+---
+
+## Layer 3 — Hybrid Retrieval
+
+### Module: `src/embeddings.py` (RRF functions)
+
+Two retrieval signals fused via **Reciprocal Rank Fusion (RRF)**:
+
+### Signal 1 — LSA Cosine Search
+```python
+# L2-normalized vectors → cosine similarity = dot product
+scores = candidate_matrix.dot(jd_embedding)
+top_k_ids = argsort(-scores)[:1000]
+```
+
+### Signal 2 — BM25 Keyword Search
+```python
+bm25 = BM25Okapi([text.lower().split() for text in candidate_texts])
+scores = bm25.get_scores(jd_query.lower().split())
+```
+
+### RRF Fusion Formula
+```python
+fused_score(candidate) = 0.6 / (60 + semantic_rank)
+                       + 0.4 / (60 + bm25_rank)
+```
+
+**Why RRF?**
+- Semantic alone misses exact skill matches (e.g., "FAISS" as a specific tool)
+- BM25 alone misses semantic equivalents
+- RRF combines both without needing hyperparameter tuning
+- Returns top-1000 pool for deep scoring
+
+---
+
+## Layer 4 — Multi-Signal Scoring Engine
+
+### Module: `src/scoring.py`
+
+Three independent scores computed per candidate:
+
+---
+
+### Score 1: Semantic Score (0–100)
+```python
+def semantic_score(cosine_sim):
+    return max(0.0, min(1.0, cosine_sim)) * 100.0
+```
+Raw cosine similarity normalized to 0–100 range.
+
+---
+
+### Score 2: Profile Score (0–100)
+Four sub-components:
+
+**a) Required Skills Coverage (50%)**
+```python
+for skill in required_skills:
+    if skill in candidate_skills:
+        req_hit += candidate_skills[skill]  # weighted by proficiency
+# Proficiency weights: beginner=0.25, intermediate=0.55, advanced=0.80, expert=1.0
+# Endorsements add up to 25% boost, duration adds up to 25% boost
+# Assessment scores from redrob_signals add further boost
+```
+
+**b) Experience Match (25%)**
+```python
+if exp_min <= yoe <= exp_max:   score = 100.0
+elif yoe < exp_min:              score = max(0, 100 - (exp_min-yoe)*15)
+else:                            score = max(60, 100 - (yoe-exp_max)*5)
+```
+
+**c) Education Tier (15%)**
+```
+Tier 1 → 100  |  Tier 2 → 80  |  Tier 3 → 60  |  Tier 4 → 40  |  Unknown → 30
+```
+
+**d) Title Relevance (10%)**
+```python
+if jd_seniority in title:       score = 100.0
+elif "engineer/scientist" in:   score = 85.0
+else:                           score = 60.0
+```
+
+**e) Nice-to-have Bonus**
+```python
+bonus = sum(candidate_skills.get(sk, 0) * 5.0 for sk in nice_to_have)
+bonus = min(bonus, 15.0)  # capped at 15 extra points
+```
+
+---
+
+### Score 3: Behavioral Score (0–100)
+Four sub-components using all 23 Redrob signals:
+
+**a) Recency & Availability (30%)**
+```
+last_active_date:     ≤7d→100, ≤30d→85, ≤90d→65, ≤180d→40, else→10
+open_to_work_flag:    +20 bonus
+profile_completeness: 0-10 pts
+avg_response_time:    faster = higher score (up to 10 pts)
+```
+
+**b) Engagement Activity (25%)**
+```
+applications_submitted_30d:   0-30 pts (cap at 5 apps)
+profile_views_received_30d:   0-20 pts (cap at 50 views)
+saved_by_recruiters_30d:      0-20 pts (cap at 10 saves)
+search_appearance_30d:        0-10 pts
+github_activity_score:        0-20 pts
+connection_count:             0-10 pts (cap at 500)
+```
+
+**c) Reliability (25%)**
+```
+recruiter_response_rate:    ×40 pts
+interview_completion_rate:  ×30 pts
+offer_acceptance_rate:      ×20 pts
+notice_period_days:         shorter = higher (up to 10 pts)
+verified_email/phone/linkedin: 3+3+4 pts
+```
+
+**d) Intent & Job-Fit (20%)**
+```
+preferred_work_mode match:  40 pts (full match) or 10 pts (mismatch)
+willing_to_relocate:        +20 pts
+endorsements_received:      0-25 pts
+expected_salary_range:      15 pts if ≤60 LPA, else 5 pts
+```
+
+---
+
+### Dynamic Weight System
+```python
+SENIORITY_WEIGHTS = {
+    "intern":    {"semantic": 0.30, "profile": 0.25, "behavioral": 0.45},
+    "junior":    {"semantic": 0.35, "profile": 0.30, "behavioral": 0.35},
+    "mid":       {"semantic": 0.40, "profile": 0.35, "behavioral": 0.25},
+    "senior":    {"semantic": 0.38, "profile": 0.45, "behavioral": 0.17},
+    "lead":      {"semantic": 0.35, "profile": 0.50, "behavioral": 0.15},
+    "founding":  {"semantic": 0.35, "profile": 0.45, "behavioral": 0.20},
+}
+```
+
+### Cold-Start Multiplier
+```python
+# Candidates with no behavioral data get mild penalty (not exclusion)
+if data_points >= 2:  multiplier = 1.00
+elif data_points == 1:multiplier = 0.90
+else:                 multiplier = 0.80
+```
+
+### Final Score Formula
+```python
+final = (w["semantic"] * sem + w["profile"] * prof + w["behavioral"] * beh) / 100.0
+final = round(min(final * cold_start_mult, 1.0), 4)
+```
+
+---
+
+## Layer 5 — Ranking + Trust
+
+### Module: `rank.py`
+
+- Sort by `(-score, candidate_id)` for deterministic tie-breaking
+- Pad to exactly 100 rows if retrieval pool < 100
+- Enforce monotonically non-increasing scores (submission spec requirement)
+- Assign ranks 1–100
+
+### Explainability (`src/scoring.py: generate_reasoning()`)
+```
+"Senior ML Engineer with 6.0 yrs; 3 core skills matched;
+ response rate 0.85; last active 2d ago; notice 30d; open to work; github 72"
+```
+
+### Bias Audit (`src/bias_audit.py`)
+```
+Experience buckets: 0-2 yrs, 2-5 yrs, 5-9 yrs, 9+ yrs
+Countries: India, USA, UAE, UK, Germany, ...
+Report: output/bias_audit.json
+```
+
+---
+
+## Layer 6 — Output
+
+### Files Written
+| File | Format | Content |
+|------|--------|---------|
+| `output/submission.csv` | CSV | 100 rows: candidate_id, rank, score, reasoning |
+| `output/submission_detailed.json` | JSON | 100 rows + sub-scores (sem, prof, beh) |
+| `output/bias_audit.json` | JSON | Fairness report by experience + country |
+
+### CSV Format
+```
+candidate_id,rank,score,reasoning
+CAND_0000031,1,0.6476,"Senior ML Engineer 6.0 yrs; 3 skills matched; ..."
+CAND_0000021,2,0.6201,"AI Researcher 8.0 yrs; 4 skills matched; ..."
+```
+
+---
+
+## Performance Summary
+
+| Metric | Value |
+|--------|-------|
+| Runtime (50 candidates) | ~1.1 seconds |
+| Runtime (full dataset) | < 5 minutes |
+| API calls | 0 |
+| GPU required | No |
+| Internet required | No |
+| Embedding dimensions | 256 |
+| Retrieval pool size | 1000 |
+| Output rows | Exactly 100 |
+
+---
+
+*CodeCrafter | Team Leader: Varsha Katiyar | Redrob Hackathon 2025*

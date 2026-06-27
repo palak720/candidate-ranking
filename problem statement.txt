@@ -1,0 +1,167 @@
+# 📋 Problem Statement
+## Intelligent Candidate Discovery
+### Redrob Hackathon 2026 — Track 01: Data & AI Challenge
+
+---
+
+## 🔴 The Problem
+
+Recruiters today face a broken hiring funnel:
+
+> *"A recruiter at a fast-growing startup has 10,000 candidate profiles to review for a Senior ML Engineer role. The current system returns 847 profiles matching keywords like 'Python' and 'Machine Learning' — all of which must be reviewed manually."*
+
+### Three Core Failures of Traditional Systems
+
+### ❌ Failure 1 — Keyword Blindness
+Traditional systems match text, not meaning.
+
+| Candidate A says | Candidate B says | Same meaning? | Old system sees |
+|-----------------|-----------------|---------------|----------------|
+| "built ML pipelines" | "Machine Learning Engineer" | ✅ Yes | ❌ Different |
+| "PyTorch deep learning" | "neural network researcher" | ✅ Yes | ❌ Different |
+| "NLP + transformers" | "natural language processing" | ✅ Yes | ❌ Different |
+
+**Result:** Hidden gems are missed. Surface-level candidates surface instead.
+
+---
+
+### ❌ Failure 2 — Context Loss
+JDs contain nuance that keyword search cannot handle:
+
+- *"startup experience preferred"* — no keyword to match
+- *"wears multiple hats"* — no keyword to match
+- *"fast learner, mission-driven"* — no keyword to match
+- *"5+ years but open to exceptional candidates"* — ambiguous range
+
+**Result:** The intent of the JD is lost. Wrong candidates are shortlisted.
+
+---
+
+### ❌ Failure 3 — Behavioral Signals Ignored
+The platform has rich behavioral data that is never used:
+
+- Who was active on the platform yesterday vs. 2 years ago?
+- Who has a 90% recruiter response rate vs. 10%?
+- Who has applied to 5 jobs this month (actively looking)?
+- Who has been saved by 8 other recruiters recently?
+
+**Result:** Passive, disengaged candidates rank the same as actively searching, highly responsive ones.
+
+---
+
+## 🎯 The Challenge
+
+> *"Develop a robust, workable Proof of Concept that doesn't just filter, but intelligently ranks candidates."*
+
+The system must be capable of:
+
+### 1. Deep Job Understanding
+- Interpret complex, nuanced job descriptions
+- Extract: required skills, nice-to-have skills, seniority, experience range, work mode, domain, intent
+- Go beyond surface text to understand what the role actually needs
+
+### 2. Contextual Relevance
+- See beyond keywords to understand semantic fit
+- "Built neural nets" should match "ML Engineer"
+- "Wears multiple hats" should match "cross-functional" roles
+- Context and meaning must drive matching, not character comparison
+
+### 3. Signal Integration
+- Leverage ALL data available: profile attributes, career metadata, AND behavioral signals
+- 23 Redrob platform signals must be incorporated
+- Recency, engagement, reliability, and intent all matter
+
+### 4. Lightning-Fast, Accurate Output
+- Deliver a ranked shortlist of the best-fit candidates
+- Output must be explainable — why did each candidate rank where they did?
+- Must handle large-scale data efficiently
+
+---
+
+## 📦 Dataset Provided
+
+| File | Description |
+|------|-------------|
+| `candidates.jsonl` | Full candidate pool (464MB, ~100k+ profiles) |
+| `sample_candidates.json` | 50-candidate sample for testing |
+| `candidate_schema.json` | Schema definition for all fields |
+| `job_description.docx` | The target job description |
+| `redrob_signals_doc.docx` | Documentation of all 23 behavioral signals |
+| `submission_spec.docx` | Output format specification |
+| `sample_submission.csv` | Example of correct output format |
+| `validate_submission.py` | Official validator script |
+
+### Candidate Profile Fields
+Each candidate has:
+- **Profile** — headline, summary, current title, company, industry, years of experience, location
+- **Career History** — roles, companies, descriptions, tenure
+- **Education** — degree, field, institution, tier
+- **Skills** — name, proficiency level, endorsements, duration
+- **Certifications** — name, issuer
+- **Redrob Signals** — 23 behavioral and engagement signals
+
+### The 23 Redrob Behavioral Signals
+```
+last_active_date              open_to_work_flag
+applications_submitted_30d    profile_views_received_30d
+saved_by_recruiters_30d       search_appearance_30d
+recruiter_response_rate       interview_completion_rate
+offer_acceptance_rate         avg_response_time_hours
+notice_period_days            willing_to_relocate
+preferred_work_mode           profile_completeness_score
+github_activity_score         linkedin_connected
+verified_email                verified_phone
+connection_count              endorsements_received
+expected_salary_range_inr_lpa skill_assessment_scores
+```
+
+---
+
+## 📤 Required Output
+
+### Submission Format (`submission.csv`)
+```
+candidate_id,rank,score,reasoning
+CAND_0000031,1,0.6476,"Senior ML Engineer 6.0 yrs; 3 skills matched; active 2d ago"
+CAND_0000021,2,0.6201,"AI Researcher 8.0 yrs; 4 skills matched; open to work"
+...
+```
+
+### Rules
+- Exactly **100 rows**
+- Ranks **1–100**, each exactly once
+- Score **monotonically non-increasing**
+- No ties in rank
+- CPU-only execution (no GPU, no external API)
+
+---
+
+## 💡 Why This Is Hard
+
+| Challenge | Why It's Difficult |
+|-----------|-------------------|
+| Scale | 100k+ candidates must be ranked in minutes |
+| Nuance | JD intent cannot be captured by keywords |
+| Sparsity | Many candidates have incomplete behavioral data |
+| Fairness | System must not bias by geography or experience level |
+| Explainability | Every rank must be justifiable to a recruiter |
+| Constraints | CPU-only, offline, no API, no GPU |
+
+---
+
+## ✅ Our Solution Summary
+
+**CodeCrafter** solves all three failures with a 3-signal AI pipeline:
+
+| Problem | Our Solution |
+|---------|-------------|
+| Keyword blindness | TF-IDF + LSA semantic embeddings (meaning-level match) |
+| Context loss | Rule-based LLM-style JD parser extracts structured intent |
+| Behavioral data ignored | All 23 Redrob signals used across 4 sub-components |
+| Scale | Hybrid RRF retrieval + cached embeddings = <2 sec runtime |
+| Explainability | Plain-language reasoning string per candidate |
+| Fairness | Bias audit across experience buckets and countries |
+
+---
+
+*CodeCrafter | Team Leader: Varsha Katiyar | Redrob Hackathon 2025*

@@ -1,5 +1,5 @@
 """
-Streamlit demo for the candidate ranking system.
+Streamlit demo for the candidate-ranking system.
 
 Run:
   streamlit run demo/app.py
