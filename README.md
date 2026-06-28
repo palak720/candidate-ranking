@@ -23,7 +23,7 @@ The system delivers a **precise, explainable top-100 ranked shortlist** from mas
 ---
 
 ## Architecture Diagram
-[View Architecture Diagram](docs/architecture_diagram.html)
+[View Architecture Diagram](docs/ARCHITECTURE_DIAGRAM%20(1).html)
 
 ## 🚀 Quick Start
 
@@ -160,8 +160,3 @@ Sample data (`data/sample_candidates.json` — 50 candidates) is included for te
 - `output/submission_detailed.json` — sub-scores for analysis
 - `output/bias_audit.json` — fairness report
 - `demo/app.py` — Streamlit live demo
-
----
-
-
-*CodeCrafter | Team Leader: Varsha Katiyar | Redrob Hackathon 2025*
