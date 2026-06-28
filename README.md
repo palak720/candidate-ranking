@@ -22,6 +22,9 @@ The system delivers a **precise, explainable top-100 ranked shortlist** from mas
 
 ---
 
+## Architecture Diagram
+[View Architecture Diagram](docs/architecture_diagram.html)
+
 ## 🚀 Quick Start
 
 ### Step 1 — Install dependencies
@@ -159,5 +162,6 @@ Sample data (`data/sample_candidates.json` — 50 candidates) is included for te
 - `demo/app.py` — Streamlit live demo
 
 ---
+
 
 *CodeCrafter | Team Leader: Varsha Katiyar | Redrob Hackathon 2025*

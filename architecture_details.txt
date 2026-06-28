@@ -1,6 +1,6 @@
 # 🏗️ Architecture Details
 ## Intelligent Candidate Discovery System
-### CodeCrafter — Redrob Hackathon 2025
+### CodeCrafter — Redrob Hackathon 2026
 
 ---
 
@@ -331,7 +331,3 @@ CAND_0000021,2,0.6201,"AI Researcher 8.0 yrs; 4 skills matched; ..."
 | Embedding dimensions | 256 |
 | Retrieval pool size | 1000 |
 | Output rows | Exactly 100 |
-
----
-
-*CodeCrafter | Team Leader: Varsha Katiyar | Redrob Hackathon 2025*
