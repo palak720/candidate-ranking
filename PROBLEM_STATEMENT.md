@@ -161,7 +161,3 @@ CAND_0000021,2,0.6201,"AI Researcher 8.0 yrs; 4 skills matched; open to work"
 | Scale | Hybrid RRF retrieval + cached embeddings = <2 sec runtime |
 | Explainability | Plain-language reasoning string per candidate |
 | Fairness | Bias audit across experience buckets and countries |
-
----
-
-*CodeCrafter | Team Leader: Varsha Katiyar | Redrob Hackathon 2026*
